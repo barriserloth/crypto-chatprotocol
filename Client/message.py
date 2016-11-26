@@ -1,6 +1,9 @@
 from user import User
 from json import JSONEncoder
-
+from AESCipher import *
+from Crypto.Hash import SHA256
+from Crypto.Signature import PKCS1_PSS
+from Crypto.PublicKey import RSA
 
 class Message():
     '''
@@ -56,5 +59,33 @@ class MessageEncoder(JSONEncoder):
         :param o: should be an instance of the Message class
         :return: dict that can be serialized into JSON
         '''
-        assert isinstance(o, Message)
-        return {"content" : o.get_content()}
+        
+        assert isinstace(o, Message)
+
+        ######################################################################
+        # get group key!!!!!!!!!!!!!!!!!!!!!!!
+        # This has not been implemented yet (get group key from file)
+        ######################################################################
+
+        aes_group = AESCipher(group_key)
+
+        # generate message key
+        message_key = aes_group.generateKey()
+        aes_message = AESCipher(message_key)
+
+        # encrypt message key using group key
+        e_message_key = aes_group.encode(message_key)
+
+        # encrypt message with message key
+        e_message = aes_message.encode(o.get_content())
+
+        # get private key
+        owner = str(o.get_owner()).lower()
+        key = RSA.import(open(owner + "PrivKey.pem").read())
+        h = SHA256.new()
+        h.update(e_message)
+        signer = PKCS1_PSS.new(key)
+        signature = PKCS1_PSS.sign(key)
+
+        encrypted_data = e_message_key + signature
+        return {"content" : encrypted_data}

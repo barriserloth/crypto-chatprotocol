@@ -25,3 +25,6 @@ class AESCipher:
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
         return unpad(cipher.decrypt(enc))
 
+    ''' Returns a random 16 byte key for use in AES '''
+    def generateKey():
+        return getrandbits(BS * 8)
