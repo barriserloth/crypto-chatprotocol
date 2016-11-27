@@ -9,6 +9,7 @@ import urllib2
 import json
 from config import *
 import binascii
+import base64
 
 class Message():
     '''
@@ -74,37 +75,34 @@ class MessageEncoder(JSONEncoder):
         
         assert isinstance(o, Message)
 
-        ######################################################################
-        # get group key!!!!!!!!!!!!!!!!!!!!!!!
-        # This has not been implemented yet (get group key from file)
-        ######################################################################
         f = open(str(o.get_group_id()) + 'Key.txt', 'r')
-        group_key = "-" + binascii.hexlify(f.read()) + "-"
-        print "Group key: "
-        print group_key
-        print
+        group_key = binascii.hexlify(f.read())
+        f.close()
         aes_group = AESCipher(group_key)
 
         # generate message key
-        message_key = generateKey()
+        message_key = binascii.hexlify(generateKey())
         aes_message = AESCipher(message_key)
 
         # encrypt message key using group key
-        e_message_key = aes_group.encode(message_key)
+        e_message_key = aes_group.encrypt(message_key)
 
         # add timestamp to message
-        message = o.get_content() + datetime.datetime.utcnow()
+        message = o.get_content() + str(datetime.datetime.utcnow())
 
         # encrypt message with message key
-        e_message = aes_message.encode(message)
+        e_message = aes_message.encrypt(message)
 
         # get private key
         owner = str(o.get_owner()).lower()
-        key = RSA.importKey(open(owner + "PrivKey.pem").read())
+        key = RSA.importKey(open(owner[2:-1] + "PrivKey.pem").read())
         h = SHA256.new()
         h.update(e_message)
         signer = PKCS1_PSS.new(key)
-        signature = PKCS1_PSS.sign(key)
+        signature = signer.sign(h)
 
-        encrypted_data = e_message_key + signature
-        return {"content" : encrypted_data}
+        print len(signature)
+
+        encrypted_data = str(e_message_key) + str(signature)
+        encode = base64.encodestring(encrypted_data)
+        return {"content" : encode}

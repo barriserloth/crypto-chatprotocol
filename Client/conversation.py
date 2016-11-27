@@ -2,6 +2,10 @@ from message import Message
 import base64
 from time import sleep
 from threading import Thread
+from AESCipher import *
+from Crypto.Hash import SHA256
+from Crypto.Signature import PKCS1_PSS
+from Crypto.PublicKey import RSA
 
 class Conversation:
     '''
@@ -122,8 +126,29 @@ class Conversation:
         '''
 
         # process message here
-		# example is base64 decoding, extend this with any crypto processing of your protocol
+        # example is base64 decoding, extend this with any crypto processing of your protocol
         decoded_msg = base64.decodestring(msg_raw)
+
+        # last 32 bytes should be the signature
+        encr_msg = decoded_msg[:-32]
+        signature = decoded_msg[-32:]
+
+        key = RSA.importKey(open(owner_str.lower() + 'PubKey.pem').read())
+        h = SHA256.new()
+        h.update(encr_msg)
+        verifier = PKCS1_PSS.new(key)
+        if not verifier.verify(h,signature):
+            raise Exception('Signature not valid')
+
+        group_cipher = AESCipher(group_key)
+        # get message key
+        encr_message_key = encr_msg[:16]
+        message_key = aes_group.decrypt(encr_message_key)
+
+        # decrypt message using message key
+        encr_message = encr_msg[16:]
+        message_cipher = AESCipher(message_key)
+        decoded_msg = message_cipher.decrypt(encr_message)
 
         # print message and add it to the list of printed messages
         self.print_message(
@@ -149,9 +174,9 @@ class Conversation:
             self.printed_messages.append(m)
 
         # process outgoing message here
-		# example is base64 encoding, extend this with any crypto processing of your protocol
+        # example is base64 encoding, extend this with any crypto processing of your protocol
         encoded_msg = base64.encodestring(msg_raw)
-
+        
         # post the message to the conversation
         self.manager.post_message_to_conversation(encoded_msg)
 
