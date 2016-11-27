@@ -74,7 +74,7 @@ class MessageEncoder(JSONEncoder):
         '''
         
         assert isinstance(o, Message)
-
+        '''
         f = open(str(o.get_group_id()) + 'Key.txt', 'r')
         group_key = binascii.hexlify(f.read())
         f.close()
@@ -104,5 +104,5 @@ class MessageEncoder(JSONEncoder):
         print len(signature)
 
         encrypted_data = str(e_message_key) + str(signature)
-        encode = base64.encodestring(encrypted_data)
-        return {"content" : encode}
+        encode = base64.encodestring(encrypted_data)'''
+        return {"content" : o.get_content()}

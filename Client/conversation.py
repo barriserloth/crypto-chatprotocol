@@ -6,6 +6,8 @@ from AESCipher import *
 from Crypto.Hash import SHA256
 from Crypto.Signature import PKCS1_PSS
 from Crypto.PublicKey import RSA
+import binascii
+import datetime
 
 class Conversation:
     '''
@@ -129,24 +131,39 @@ class Conversation:
         # example is base64 decoding, extend this with any crypto processing of your protocol
         decoded_msg = base64.decodestring(msg_raw)
 
-        # last 32 bytes should be the signature
-        encr_msg = decoded_msg[:-32]
-        signature = decoded_msg[-32:]
+        f = open(str(self.get_id()) + 'Key.txt', 'r')
+        group_key = binascii.hexlify(f.read())
+        f.close()
 
+        # last 32 bytes should be the signature
+        encr_msg = decoded_msg
+        print 'decoded message len'
+        print len(encr_msg)
+        #encr_msg = decoded_msg[:-256]
+        #signature = decoded_msg[-256:]
+
+        #print signature
+        '''
         key = RSA.importKey(open(owner_str.lower() + 'PubKey.pem').read())
         h = SHA256.new()
         h.update(encr_msg)
         verifier = PKCS1_PSS.new(key)
+        
         if not verifier.verify(h,signature):
             raise Exception('Signature not valid')
+        '''
 
-        group_cipher = AESCipher(group_key)
+        aes_group = AESCipher(group_key)
         # get message key
-        encr_message_key = encr_msg[:16]
+        encr_message_key = encr_msg[:32]
+        print 'enc mess'
+        print encr_message_key
         message_key = aes_group.decrypt(encr_message_key)
+        print 'message key'
+        print message_key
 
         # decrypt message using message key
-        encr_message = encr_msg[16:]
+        encr_message = encr_msg[32:]
         message_cipher = AESCipher(message_key)
         decoded_msg = message_cipher.decrypt(encr_message)
 
@@ -174,8 +191,40 @@ class Conversation:
             self.printed_messages.append(m)
 
         # process outgoing message here
+        f = open(str(self.get_id()) + 'Key.txt', 'r')
+        group_key = binascii.hexlify(f.read())
+        f.close()
+        aes_group = AESCipher(group_key)
+
+        # generate message key
+        message_key = binascii.hexlify(generateKey())
+        aes_message = AESCipher(message_key)
+
+        # encrypt message key using group key
+        e_message_key = aes_group.encrypt(message_key)
+
+        #add timestamp to message
+        message = msg_raw + str(datetime.datetime.utcnow())
+
+        # encrypt message with message key
+        e_message = aes_message.encrypt(message)
+        '''
+        # get private key
+        owner = str(self.manager.user_name).lower()
+        key = RSA.importKey(open(owner + "PrivKey.pem").read())
+        h = SHA256.new()
+        h.update(e_message)
+        signer = PKCS1_PSS.new(key)
+        signature = signer.sign(h)
+        '''
+        #print signature
+
+        encrypted_data = str(e_message_key) + str(e_message)# + str(signature)
+        print "Encrypted data length"
+        print len(encrypted_data)
+
         # example is base64 encoding, extend this with any crypto processing of your protocol
-        encoded_msg = base64.encodestring(msg_raw)
+        encoded_msg = base64.encodestring(encrypted_data)
         
         # post the message to the conversation
         self.manager.post_message_to_conversation(encoded_msg)

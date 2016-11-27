@@ -20,7 +20,7 @@ def toHex(number):
 
 ''' Returns a random 16 byte key for use in AES '''
 def generateKey():
-        return toHex(getrandbits(128))
+        return getrandbits(128)
 
 class AESCipher:
     def __init__(self, key):
@@ -29,13 +29,22 @@ class AESCipher:
 
     def encrypt (self, raw):
         raw = pad(raw)
+        print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+        print raw
         iv = Random.new().read(AES.block_size)
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
-        return (iv + cipher.encrypt(raw)).encode("hex")
+        enc = cipher.encrypt(raw)
+        print enc
+        print len(enc)
+        print str(iv) + str(enc)
+        return (str(iv) + str(enc))
 
     def decrypt(self, enc):
-        enc = enc.decode("hex")
+        #enc = enc.decode("hex")
+        print len(enc)
         iv = enc[:16]
+        print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        print len(iv)
         enc = enc[16:]
         cipher = AES.new(self.key, AES.MODE_CBC, iv)
         return unpad(cipher.decrypt(enc))
