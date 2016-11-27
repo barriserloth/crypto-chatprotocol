@@ -4,13 +4,18 @@ from AESCipher import *
 from Crypto.Hash import SHA256
 from Crypto.Signature import PKCS1_PSS
 from Crypto.PublicKey import RSA
+import datetime
+import urllib2
+import json
+from config import *
+import binascii
 
 class Message():
     '''
     Represents a single message in a conversation
     '''
 
-    def __init__(self, owner_name="", content=""):
+    def __init__(self, owner_name="", content="", group_id=0):
         '''
         Constructor
         :param owner_name: user name of the user who created the message
@@ -19,6 +24,7 @@ class Message():
         '''
         self.content = content
         self.owner = User(owner_name)
+        self.group_id = group_id
 
     def __str__(self):
         '''
@@ -48,6 +54,12 @@ class Message():
         :return: string
         '''
         return self.content
+    
+    def get_group_id(self):
+        '''
+        Returns the group_id
+        '''
+        return self.group_id
 
 class MessageEncoder(JSONEncoder):
     '''
@@ -60,28 +72,35 @@ class MessageEncoder(JSONEncoder):
         :return: dict that can be serialized into JSON
         '''
         
-        assert isinstace(o, Message)
+        assert isinstance(o, Message)
 
         ######################################################################
         # get group key!!!!!!!!!!!!!!!!!!!!!!!
         # This has not been implemented yet (get group key from file)
         ######################################################################
-
+        f = open(str(o.get_group_id()) + 'Key.txt', 'r')
+        group_key = "-" + binascii.hexlify(f.read()) + "-"
+        print "Group key: "
+        print group_key
+        print
         aes_group = AESCipher(group_key)
 
         # generate message key
-        message_key = aes_group.generateKey()
+        message_key = generateKey()
         aes_message = AESCipher(message_key)
 
         # encrypt message key using group key
         e_message_key = aes_group.encode(message_key)
 
+        # add timestamp to message
+        message = o.get_content() + datetime.datetime.utcnow()
+
         # encrypt message with message key
-        e_message = aes_message.encode(o.get_content())
+        e_message = aes_message.encode(message)
 
         # get private key
         owner = str(o.get_owner()).lower()
-        key = RSA.import(open(owner + "PrivKey.pem").read())
+        key = RSA.importKey(open(owner + "PrivKey.pem").read())
         h = SHA256.new()
         h.update(e_message)
         signer = PKCS1_PSS.new(key)

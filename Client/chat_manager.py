@@ -4,8 +4,9 @@ import json
 from conversation import Conversation
 from message import Message, MessageEncoder
 from time import sleep
-
+from AESCipher import generateKey
 from menu import menu
+import pickle
 
 from threading import Thread
 
@@ -14,7 +15,6 @@ import base64
 
 state = INIT  # initial state for the application
 has_requested_messages = False  # history of the next conversation will need to be downloaded and printed
-
 
 class ChatManager:
     '''
@@ -139,6 +139,22 @@ class ChatManager:
             except urllib2.URLError as e:
                 print "Unable to create conversation, reason:", e.message
                 return
+
+            #Querying server for convo info
+            #theoretically for sending initial encrypted thing to all users
+            req = urllib2.Request("http://" + SERVER + ":" + SERVER_PORT + "/conversations")
+            req.add_header("Cookie", self.cookie)
+            r = urllib2.urlopen(req)
+
+            conversations = json.loads(r.read())
+            for c in conversations:
+                conversation_id = c["conversation_id"]
+
+            current_id = conversation_id
+            gKey = generateKey()
+            f = open(str(current_id) + 'Key.txt', 'w')
+            f.write(gKey)
+
             print "Conversation created"
         else:
             print "Please log in before creating new conversations"
@@ -219,8 +235,9 @@ class ChatManager:
             sleep(0.01)
         try:
             # Process outgoing message
+            id = self.current_conversation.get_id()
             msg = Message(content=base64.encodestring(msg_raw),
-                          owner_name=self.user_name)
+                    owner_name=self.user_name, group_id=id)
             # Send the message
             req = urllib2.Request("http://" + SERVER + ":" + SERVER_PORT + "/conversations/" +
                                   str(self.current_conversation.get_id()),
