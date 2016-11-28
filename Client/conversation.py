@@ -107,7 +107,6 @@ class Conversation:
         '''
         
         if not self.manager.participants_list:
-            
             f = open(self.id + 'Key.pem', 'r')
             self.group_key = f.read()
 
@@ -122,11 +121,9 @@ class Conversation:
             self.keyExchangeDone = True
             print "Generated group key..."
             #for i in range (len(list_users) - 1):
-
             f = open(self.id + 'Key.pem', 'w')
             f.write(self.group_key)
             f.close()
-
         
         # You can use this function to initiate your key exchange
 		# Useful stuff that you may need:
@@ -156,12 +153,11 @@ class Conversation:
         group_key = self.group_key
 
         # last 32 bytes should be the signature
-        encr_msg = decoded_msg
-        #encr_msg = decoded_msg[:-256]
-        #signature = decoded_msg[-256:]
+        #encr_msg = decoded_msg
+        encr_msg = decoded_msg[:-256]
+        signature = decoded_msg[-256:]
 
         #print signature
-        '''
         key = RSA.importKey(open(owner_str.lower() + 'PubKey.pem').read())
         h = SHA256.new()
         h.update(encr_msg)
@@ -169,7 +165,6 @@ class Conversation:
         
         if not verifier.verify(h,signature):
             raise Exception('Signature not valid')
-        '''
 
         aes_group = AESCipher(group_key)
         # get message key
@@ -246,11 +241,11 @@ class Conversation:
         #e_message_key = aes_group.encrypt(message_key)
 
         #add timestamp to message
-        message = msg_raw + " " + str(datetime.datetime.utcnow())
+        message = msg_raw + " (Message sent at: " + str(datetime.datetime.utcnow()) + ")"
 
         # encrypt message with message key
         e_message = aes_group.encrypt(message)
-        '''
+
         # get private key
         owner = str(self.manager.user_name).lower()
         key = RSA.importKey(open(owner + "PrivKey.pem").read())
@@ -258,10 +253,8 @@ class Conversation:
         h.update(e_message)
         signer = PKCS1_PSS.new(key)
         signature = signer.sign(h)
-        '''
-        #print signature
 
-        encrypted_data = str(e_message)# + str(signature)
+        encrypted_data = str(e_message) + str(signature)
 
         # example is base64 encoding, extend this with any crypto processing of your protocol
         encoded_msg = base64.encodestring(encrypted_data)
