@@ -34,6 +34,7 @@ class Conversation:
         self.msg_process_loop.start()
         self.msg_process_loop_started = True
         self.keyExchangeDone = False
+        self.lastTimeStamp = None
 
     def append_msg_to_process(self, msg_json):
         '''
@@ -171,6 +172,24 @@ class Conversation:
 
         # decrypt message using message key
         decoded_msg = aes_group.decrypt(encr_msg)
+
+        # check for correct timestamp
+        timestamp = datetime.datetime.strptime(decoded_msg[-27:-1], "%Y-%m-%d %H:%M:%S.%f")
+        if self.lastTimeStamp == None:
+            if timestamp < datetime.datetime.utcnow():
+                self.lastTimeStamp = timestamp
+            else:
+                raise Exception('Error: timestamp is from a point in the future')
+        elif self.lastTimeStamp < timestamp:
+            if timestamp < datetime.datetime.utcnow():
+                self.lastTimeStamp = timestamp
+            else:
+                raise Exception('Error: timestamp is from a point in the future')
+        else:
+            raise Exception('Timestamp is out of order. Possible replay attack.')
+
+        # uncomment to remove timestamp from message
+        #decoded_msg = decoded_msg[:-46]
 
         # print message and add it to the list of printed messages
         self.print_message(
