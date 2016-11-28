@@ -21,7 +21,7 @@ class Conversation:
         :return: None
         '''
         self.id = c_id  # ID of the conversation
-        self.all_messages = []  # all retrieved messages of the conversation
+        self.all_messages = []
         self.printed_messages = []
         self.last_processed_msg_id = 0  # ID of the last processed message
         from chat_manager import ChatManager
@@ -33,6 +33,7 @@ class Conversation:
         ) # message processing loop
         self.msg_process_loop.start()
         self.msg_process_loop_started = True
+        self.keyExchangeDone = False
 
     def append_msg_to_process(self, msg_json):
         '''
@@ -104,6 +105,29 @@ class Conversation:
         Prepares the conversation for usage
         :return:
         '''
+        
+        if not self.manager.participants_list:
+            
+            f = open(self.id + 'Key.pem', 'r')
+            self.group_key = f.read()
+
+        if self.manager.participants_list:
+            list_users = self.manager.participants_list
+
+        if self.manager.participants_list:
+           if list_users[-1] == self.manager.user_name:
+
+            key = Random.new().read(AES.key_size[1])
+            self.group_key = key
+            self.keyExchangeDone = True
+            print "Generated group key..."
+            #for i in range (len(list_users) - 1):
+
+            f = open(self.id + 'Key.pem', 'w')
+            f.write(self.group_key)
+            f.close()
+
+        
         # You can use this function to initiate your key exchange
 		# Useful stuff that you may need:
 		# - name of the current user: self.manager.user_name
@@ -115,7 +139,6 @@ class Conversation:
 		# replace this with anything needed for your key exchange 
         pass
 
-
     def process_incoming_message(self, msg_raw, msg_id, owner_str):
         '''
         Process incoming messages
@@ -126,19 +149,14 @@ class Conversation:
         :param print_all: is the message part of the conversation history?
         :return: None
         '''
-
         # process message here
         # example is base64 decoding, extend this with any crypto processing of your protocol
         decoded_msg = base64.decodestring(msg_raw)
 
-        f = open(str(self.get_id()) + 'Key.txt', 'r')
-        group_key = binascii.hexlify(f.read())
-        f.close()
+        group_key = self.group_key
 
         # last 32 bytes should be the signature
         encr_msg = decoded_msg
-        print 'decoded message len'
-        print len(encr_msg)
         #encr_msg = decoded_msg[:-256]
         #signature = decoded_msg[-256:]
 
@@ -155,23 +173,40 @@ class Conversation:
 
         aes_group = AESCipher(group_key)
         # get message key
-        encr_message_key = encr_msg[:32]
-        print 'enc mess'
-        print encr_message_key
-        message_key = aes_group.decrypt(encr_message_key)
-        print 'message key'
-        print message_key
 
         # decrypt message using message key
-        encr_message = encr_msg[32:]
-        message_cipher = AESCipher(message_key)
-        decoded_msg = message_cipher.decrypt(encr_message)
+        decoded_msg = aes_group.decrypt(encr_msg)
 
         # print message and add it to the list of printed messages
         self.print_message(
             msg_raw=decoded_msg,
             owner_str=owner_str
         )
+    def send_group_key(self, msg_raw, name, originates_from_console=False):
+        '''
+        Process an outgoing message before Base64 encoding
+
+        :param msg_raw: raw message
+        :return: message to be sent to the server
+        '''
+
+        '''
+        # if the message has been typed into the console, record it, so it is never printed again during chatting
+        if originates_from_console == True:
+            # message is already seen on the console
+            m = Message(
+                owner_name=self.manager.user_name,
+                content=msg_raw
+            )
+            self.printed_messages.append(m)
+        '''
+        public_key  = RSA.importKey(open(name.lower() + "PubKey.pem").read())
+        enc_data = public_key.encrypt(msg_raw, 32)
+        
+         # example is base64 encoding, extend this with any crypto processing of your protocol
+        encoded_msg = base64.encodestring(str(enc_data))
+        
+        self.manager.post_message_to_conversation(encoded_msg)
 
     def process_outgoing_message(self, msg_raw, originates_from_console=False):
         '''
@@ -180,7 +215,7 @@ class Conversation:
         :param msg_raw: raw message
         :return: message to be sent to the server
         '''
-
+        
         # if the message has been typed into the console, record it, so it is never printed again during chatting
         if originates_from_console == True:
             # message is already seen on the console
@@ -191,23 +226,30 @@ class Conversation:
             self.printed_messages.append(m)
 
         # process outgoing message here
+        '''
         f = open(str(self.get_id()) + 'Key.txt', 'r')
-        group_key = binascii.hexlify(f.read())
+        group_key = f.read()
         f.close()
+        print "THIS IS THE READ-IN GROUP KEY"
+        print group_key
         aes_group = AESCipher(group_key)
+        print aes_group.key
+        '''
+    
+        aes_group = AESCipher(self.group_key)
 
         # generate message key
-        message_key = binascii.hexlify(generateKey())
-        aes_message = AESCipher(message_key)
+        #message_key = generateKey()
+        #aes_message = AESCipher(message_key)
 
         # encrypt message key using group key
-        e_message_key = aes_group.encrypt(message_key)
+        #e_message_key = aes_group.encrypt(message_key)
 
         #add timestamp to message
-        message = msg_raw + str(datetime.datetime.utcnow())
+        message = msg_raw + " " + str(datetime.datetime.utcnow())
 
         # encrypt message with message key
-        e_message = aes_message.encrypt(message)
+        e_message = aes_group.encrypt(message)
         '''
         # get private key
         owner = str(self.manager.user_name).lower()
@@ -219,9 +261,7 @@ class Conversation:
         '''
         #print signature
 
-        encrypted_data = str(e_message_key) + str(e_message)# + str(signature)
-        print "Encrypted data length"
-        print len(encrypted_data)
+        encrypted_data = str(e_message)# + str(signature)
 
         # example is base64 encoding, extend this with any crypto processing of your protocol
         encoded_msg = base64.encodestring(encrypted_data)

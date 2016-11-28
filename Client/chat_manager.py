@@ -37,6 +37,7 @@ class ChatManager:
         self.user_name = user_name  # user name of the current user
         self.password = password  # password of the current user
         self.get_msgs_thread_started = False  # message retrieval has not been started
+        self.participants_list = []
 
     def login_user(self):
         '''
@@ -121,8 +122,10 @@ class ChatManager:
             if participants != "":
                 # Create a list of participants
                 participant_list = participants.split(";")
+                self.participants_list = participants.split(";u,")
             # Add current user to the participant list
-            participant_list.append(self.user_name)
+            participant_list.append(self.user_name.strip('u'))
+            self.participants_list.append(self.user_name)
             data = json.dumps({
                 "participants": json.dumps(participant_list)
             })
@@ -139,21 +142,6 @@ class ChatManager:
             except urllib2.URLError as e:
                 print "Unable to create conversation, reason:", e.message
                 return
-
-            #Querying server for convo info
-            #theoretically for sending initial encrypted thing to all users
-            req = urllib2.Request("http://" + SERVER + ":" + SERVER_PORT + "/conversations")
-            req.add_header("Cookie", self.cookie)
-            r = urllib2.urlopen(req)
-
-            conversations = json.loads(r.read())
-            for c in conversations:
-                conversation_id = c["conversation_id"]
-
-            current_id = conversation_id
-            gKey = generateKey()
-            f = open(str(current_id) + 'Key.txt', 'w')
-            f.write(gKey)
 
             print "Conversation created"
         else:

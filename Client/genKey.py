@@ -8,10 +8,10 @@ pub_key = key.publickey().exportKey("PEM")
 priv_key = key.exportKey("PEM")
 
 #writing public key to file
-pubKey = open('addisonPubKey.pem', 'w')
+pubKey = open('stevePubKey.pem', 'w')
 pubKey.write(pub_key)
 pubKey.close()
 
-privKey = open('addisonPrivKey.pem', 'w')
+privKey = open('stevePrivKey.pem', 'w')
 privKey.write(priv_key)
 privKey.close()
